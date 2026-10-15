@@ -2,176 +2,527 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DependencyGuard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Geologica:wght@500;700;800&display=swap">
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --text:#e6e8ee; --muted:#9aa3b2;
-          --high:#ff5d5d; --med:#ffb547; --low:#5fb3ff; --ok:#3ecf8e; --ai:#c58cff; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:24px 32px; border-bottom:1px solid var(--line); }
-  h1 { margin:0; font-size:22px; } h1 span { color:var(--muted); font-weight:400; font-size:15px; margin-left:8px; }
-  main { padding:24px 32px; max-width:1200px; margin:0 auto; }
-  .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-  input[type=text] { flex:1; min-width:300px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit; }
-  button { padding:10px 16px; border:0; border-radius:8px; background:#3b82f6; color:white; font:inherit; font-weight:600; cursor:pointer; }
-  button.secondary { background:var(--panel); border:1px solid var(--line); }
-  button:disabled { opacity:.5; cursor:wait; }
-  label { color:var(--muted); display:flex; gap:6px; align-items:center; }
-  .legend { margin:16px 0; color:var(--muted); font-size:13px; }
-  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600; }
-  .t-obs { background:#13301f; color:var(--ok); } .t-ai { background:#2a1838; color:var(--ai); }
-  .t-high { background:#3a1414; color:var(--high); } .t-medium { background:#3a2a10; color:var(--med); }
-  .t-low { background:#122a3d; color:var(--low); } .t-none { background:#1f232c; color:var(--muted); }
-  .summary { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-  .stat b { font-size:22px; display:block; }
-  details.pkg { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin:10px 0; }
-  details.pkg > summary { padding:12px 16px; cursor:pointer; display:flex; gap:10px; align-items:center; list-style:none; }
-  details.pkg > summary::-webkit-details-marker { display:none; }
-  .pkgname { font-weight:700; } .muted { color:var(--muted); }
-  .body { padding:0 16px 16px; }
-  h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 6px; display:flex; gap:8px; align-items:center; }
-  ul { margin:0; padding-left:20px; } li { margin:2px 0; }
-  code { background:#0b0d11; padding:1px 5px; border-radius:4px; font-size:13px; }
-  .ai-box { border-left:3px solid var(--ai); padding-left:12px; }
-  .obs-box { border-left:3px solid var(--ok); padding-left:12px; }
-  #status { margin:12px 0; color:var(--muted); min-height:22px; }
-  .err { color:var(--high); }
-  pre { white-space:pre-wrap; background:#0b0d11; padding:10px; border-radius:8px; font-size:12px; max-height:240px; overflow:auto; }
+/* Layout: one centred column; giant faded wordmark hero, live pipeline rail, stat strip, interactive risk chart, filterable risk list, floating pill dock. Modern Minimalist palette, CSI-KJSSE-style motion */
+:root{
+  --bg:#0e1316; --panel:#161d22; --panel-2:#1c252b; --line:#29343c; --fg:#e9edf0; --muted:#8a98a4;
+  --charcoal:#36454f; --slate:#708090; --silver:#d3d3d3;
+  --glow:rgba(140,158,176,.32); --wordmark:rgba(211,211,211,.07); --spot:rgba(211,211,211,.07);
+  --high:#ef5a5f; --high-bg:rgba(239,90,95,.12); --med:#f0a43a; --med-bg:rgba(240,164,58,.12);
+  --low:#7aa7cf; --low-bg:rgba(122,167,207,.12); --obs:#5cb377; --obs-bg:rgba(92,179,119,.13);
+  --ai:#a596d8; --ai-bg:rgba(165,150,216,.14); --shadow:rgba(0,0,0,.55);
+  --f-display:"Geologica","Geist",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f4f5f6; --panel:#ffffff; --panel-2:#f0f2f4; --line:#dde1e5; --fg:#1f2a31; --muted:#5f6d78;
+  --glow:rgba(54,69,79,.22); --wordmark:rgba(54,69,79,.07); --spot:rgba(54,69,79,.06);
+  --high:#c92a2f; --high-bg:#fde8e8; --med:#b86b00; --med-bg:#fdf0dc; --low:#2f6ea5; --low-bg:#e3eef8;
+  --obs:#2e7d48; --obs-bg:#e2f3e7; --ai:#6a55b5; --ai-bg:#eeeafa; --shadow:rgba(31,42,49,.18); color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#f4f5f6; --panel:#ffffff; --panel-2:#f0f2f4; --line:#dde1e5; --fg:#1f2a31; --muted:#5f6d78;
+  --glow:rgba(54,69,79,.22); --wordmark:rgba(54,69,79,.07); --spot:rgba(54,69,79,.06);
+  --high:#c92a2f; --high-bg:#fde8e8; --med:#b86b00; --med-bg:#fdf0dc; --low:#2f6ea5; --low-bg:#e3eef8;
+  --obs:#2e7d48; --obs-bg:#e2f3e7; --ai:#6a55b5; --ai-bg:#eeeafa; --shadow:rgba(31,42,49,.18); color-scheme:light}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 130px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:36px}
+.progress{position:fixed;top:env(safe-area-inset-top,0px);left:0;height:2px;width:100%;transform-origin:0 50%;transform:scaleX(0);background:linear-gradient(90deg,var(--slate),var(--fg));z-index:7}
+.note{margin-top:18px;border:1px dashed var(--line);border-radius:12px;padding:10px 14px;color:var(--muted);font-size:13px}
+.note b{color:var(--fg)}
+.mono{font-family:var(--f-mono)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding-block:40px 6px;overflow:hidden}
+.wordmark{font-family:var(--f-display);font-weight:800;font-size:min(8.6vw,96px);letter-spacing:-.045em;line-height:.95;color:var(--wordmark);
+  white-space:nowrap;overflow:hidden;pointer-events:none;user-select:none;margin-bottom:-.32em;transition:color .6s}
+.hero:hover .wordmark{color:color-mix(in srgb,var(--slate) 22%,transparent)}
+.wordmark span{display:inline-block;animation:rise .9s var(--ease) both}
+.tag{font-family:var(--f-mono);font-size:12px;color:var(--slate);letter-spacing:.08em;text-transform:uppercase}
+.hero h1{position:relative;margin:6px 0 0;font-family:var(--f-display);font-weight:700;font-size:clamp(30px,4.6vw,50px);letter-spacing:-.025em;text-wrap:balance;animation:rise .8s .1s var(--ease) both}
+.hero p{position:relative;margin:10px 0 0;color:var(--muted);max-width:62ch;animation:rise .8s .2s var(--ease) both}
+@keyframes rise{from{transform:translateY(16px)}to{transform:none}}
+
+/* ---------- interactive primitives ---------- */
+button{font:inherit;cursor:pointer;color:inherit}
+.btn{position:relative;overflow:hidden;border:1px solid transparent;border-radius:12px;padding:12px 18px;font-weight:600;
+  transition:transform .25s var(--spring),box-shadow .25s var(--ease),border-color .2s,background .2s}
+.btn:hover{transform:translateY(-3px);box-shadow:0 12px 28px -12px var(--shadow)}
+.btn:active{transform:translateY(0) scale(.97);transition-duration:.08s}
+.btn:disabled{opacity:.55;cursor:progress;transform:none;box-shadow:none}
+.btn-primary{background:var(--fg);color:var(--bg)}
+.btn-primary:hover{box-shadow:0 14px 34px -12px var(--glow),0 0 0 4px var(--glow)}
+.btn-ghost{background:var(--panel);border-color:var(--line)}
+.btn-ghost:hover{border-color:var(--slate)}
+.btn .ripple{position:absolute;border-radius:50%;transform:scale(0);background:currentColor;opacity:.25;animation:ripple .6s var(--ease) forwards;pointer-events:none}
+@keyframes ripple{to{transform:scale(3.2);opacity:0}}
+.btn .spin{display:none;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;vertical-align:-2px;animation:spin .7s linear infinite}
+.btn.loading .spin{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+:focus-visible{outline:2px solid var(--slate);outline-offset:3px}
+
+.chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:8px 13px;background:var(--panel);color:var(--muted);
+  cursor:pointer;font-size:13px;user-select:none;transition:transform .25s var(--spring),color .2s,border-color .2s,background .2s,box-shadow .25s}
+.chip:hover{transform:translateY(-2px);color:var(--fg);border-color:var(--slate);box-shadow:0 8px 18px -10px var(--shadow)}
+.chip[aria-pressed="true"]{color:var(--bg);background:var(--fg);border-color:var(--fg)}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .2s,transform .3s var(--spring)}
+.chip[aria-pressed="true"] .dot{background:var(--bg);transform:scale(1.25)}
+.chip .n{font-family:var(--f-mono);font-size:11px;opacity:.7}
+
+/* spotlight surface: radial highlight follows the cursor */
+.spot{position:relative;isolation:isolate}
+.spot::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;opacity:0;transition:opacity .3s;
+  background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),var(--spot),transparent 60%)}
+.spot:hover::before{opacity:1}
+
+/* ---------- run panel ---------- */
+.run{display:grid;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 24px 60px -36px var(--shadow);transition:border-color .3s}
+.run:hover{border-color:color-mix(in srgb,var(--slate) 55%,var(--line))}
+.run-row{display:flex;gap:10px;flex-wrap:wrap}
+.field{flex:1 1 320px;min-width:0;display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:0 12px;transition:border-color .2s,box-shadow .25s}
+.field:hover{border-color:var(--slate)}
+.field:focus-within{border-color:var(--slate);box-shadow:0 0 0 4px var(--glow)}
+.field input{flex:1;min-width:0;background:none;border:0;color:var(--fg);font:500 15px var(--f-mono);padding:13px 0;outline:none}
+.examples{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:12px}
+.examples button{background:none;border:0;padding:2px 0;color:var(--muted);font:12px var(--f-mono);border-bottom:1px dashed var(--line);transition:color .2s,border-color .2s}
+.examples button:hover{color:var(--fg);border-color:var(--fg)}
+.toggles{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toggles .hint{color:var(--muted);font-size:12px}
+
+/* pipeline rail with connecting progress line */
+.rail{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.rail-line{position:absolute;left:8%;right:8%;top:50%;height:2px;background:var(--line);z-index:0;border-radius:2px}
+.rail-line i{display:block;height:100%;width:0;background:var(--obs);border-radius:2px;transition:width .5s var(--ease)}
+.step{position:relative;z-index:1;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel);min-width:0;
+  transition:transform .3s var(--spring),border-color .3s,box-shadow .3s}
+.step:hover{transform:translateY(-2px)}
+.step b{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:600}
+.step b::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .3s,box-shadow .3s}
+.step small{color:var(--muted);font:12px var(--f-mono)}
+.step.run{border-color:var(--slate);box-shadow:0 0 0 4px var(--glow);transform:translateY(-2px)}
+.step.run b::before{background:var(--med);box-shadow:0 0 10px var(--med);animation:pulse 1s ease-in-out infinite}
+.step.done b::before{background:var(--obs)}
+.step.skip{opacity:.5}
+@keyframes pulse{50%{transform:scale(1.5);opacity:.6}}
+
+/* ---------- section heads: underline grows on hover ---------- */
+.sec-h{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sec-h h2{margin:0;font-family:var(--f-display);font-size:26px;letter-spacing:-.015em;position:relative;padding-bottom:10px;cursor:default}
+.sec-h h2::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:100%;border-radius:3px;transform:scaleX(0);transform-origin:0 50%;
+  background:linear-gradient(90deg,var(--fg),var(--slate) 60%,transparent);box-shadow:0 0 14px var(--glow);transition:transform .45s var(--ease)}
+section:hover .sec-h h2::after,.sec-h h2:focus-visible::after{transform:scaleX(1)}
+.sec-h .sub{color:var(--muted);font-size:13px;margin-top:2px}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px;perspective:900px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;transform-style:preserve-3d;
+  transition:transform .35s var(--ease),border-color .25s,box-shadow .3s;cursor:default}
+.stat:hover{border-color:var(--slate);box-shadow:0 18px 40px -22px var(--shadow)}
+.stat b{display:block;font:700 30px var(--f-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:13px}
+.stat .model{font:600 15px var(--f-mono);padding-block:9px 6px}
+.c-high{color:var(--high)}.c-med{color:var(--med)}.c-low{color:var(--low)}
+
+/* ---------- chart ---------- */
+.dist{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 22px;margin-top:12px}
+.donut{position:relative;width:150px;height:150px}
+.donut svg{overflow:visible}
+.seg{cursor:pointer;transition:stroke-width .25s var(--spring),opacity .25s}
+.donut:hover .seg{opacity:.35}.donut .seg:hover{opacity:1;stroke-width:7}
+.donut-c{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.donut-c b{font:700 28px var(--f-display);line-height:1}.donut-c span{color:var(--muted);font-size:12px}
+.bars{display:grid;gap:6px;min-width:0}
+.bars .cap{color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 22px;gap:10px;align-items:center;font-size:13px;cursor:pointer;border-radius:8px;padding:4px 6px;
+  transition:background .2s,transform .25s var(--spring)}
+.bar-row:hover{background:var(--panel-2);transform:translateX(4px)}
+.bar{height:10px;border-radius:5px;background:var(--panel-2);overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:5px;transition:width 1s var(--ease),filter .2s}
+.bar-row:hover .bar i{filter:brightness(1.2)}
+
+/* ---------- filters ---------- */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 12px;background:var(--panel);transition:border-color .2s,box-shadow .25s,width .3s}
+.search:hover{border-color:var(--slate)}
+.search:focus-within{border-color:var(--slate);box-shadow:0 0 0 4px var(--glow)}
+.search input{background:none;border:0;color:var(--fg);padding:8px 2px;outline:none;font:13px var(--f-body);width:140px;transition:width .3s var(--ease)}
+.search input:focus{width:190px}
+kbd{font:11px var(--f-mono);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.list-tools{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--muted);font-size:13px;gap:8px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;color:var(--muted);font-size:13px;padding:2px 0;border-bottom:1px dashed var(--line);transition:color .2s,border-color .2s}
+.linkbtn:hover{color:var(--fg);border-color:var(--fg)}
+
+/* ---------- package cards ---------- */
+.list{display:grid;gap:10px;margin-top:10px}
+.pkg{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  transition:transform .3s var(--spring),border-color .25s,box-shadow .3s;animation:rise .5s var(--ease) both}
+.pkg:hover{transform:translateY(-3px);border-color:var(--slate);box-shadow:0 18px 40px -24px var(--shadow)}
+.pkg[data-open="true"]{border-color:color-mix(in srgb,var(--slate) 70%,var(--line))}
+.pkg::after{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--sevc);opacity:0;transition:opacity .25s}
+.pkg:hover::after,.pkg[data-open="true"]::after{opacity:1}
+.pkg[data-lv="high"]{--sevc:var(--high)}.pkg[data-lv="med"]{--sevc:var(--med)}.pkg[data-lv="low"]{--sevc:var(--low)}
+.pkg-h{width:100%;display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;background:none;border:0;padding:15px 18px;text-align:left;border-radius:16px}
+.sev{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font:600 11px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.sev::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.sev.high{color:var(--high);background:var(--high-bg)}.sev.med{color:var(--med);background:var(--med-bg)}.sev.low{color:var(--low);background:var(--low-bg)}
+.pkg-h .name{font-weight:600;font-size:16px;min-width:0}
+.pkg-h .meta{color:var(--muted);font-size:13px}
+.caret{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);color:var(--muted);transition:transform .35s var(--spring),background .2s,color .2s}
+.pkg:hover .caret{color:var(--fg);border-color:var(--slate)}
+.pkg[data-open="true"] .caret{transform:rotate(90deg);background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+.pkg[data-open="true"] .body{grid-template-rows:1fr}
+.body>div{overflow:hidden;min-height:0}
+.inner{padding:0 18px 18px;display:grid;gap:14px}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--panel-2);width:max-content;max-width:100%;overflow-x:auto;position:relative}
+.tabs button{position:relative;z-index:1;background:none;border:0;padding:7px 12px;border-radius:9px;font-size:13px;color:var(--muted);transition:color .2s}
+.tabs button[aria-selected="true"]{color:var(--fg)}
+.tabs .ind{position:absolute;top:4px;bottom:4px;border-radius:9px;background:var(--panel);box-shadow:0 2px 8px -4px var(--shadow);transition:left .35s var(--spring),width .35s var(--spring)}
+.pane{display:grid;gap:8px;animation:fade .35s var(--ease)}
+@keyframes fade{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}
+.blk{border-left:2px solid var(--obs);padding-left:12px;display:grid;gap:8px}
+.blk.ai{border-color:var(--ai);background:linear-gradient(90deg,var(--ai-bg),transparent 75%);padding:10px 12px;border-radius:0 12px 12px 0}
+.lbl{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;flex-wrap:wrap}
+.pill{border-radius:999px;padding:2px 8px;font:600 11px var(--f-mono);letter-spacing:.05em}
+.pill.obs{color:var(--obs);background:var(--obs-bg)}.pill.ai{color:var(--ai);background:var(--ai-bg)}
+.loc{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:14px;border-radius:8px;padding:4px 6px;margin-left:-6px;transition:background .2s}
+.loc:hover{background:var(--panel-2)}
+.loc code{font:13px var(--f-mono);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;cursor:copy;transition:border-color .2s,transform .2s var(--spring)}
+.loc code:hover{border-color:var(--slate);transform:translateY(-1px)}
+.loc em{font-style:normal;color:var(--muted);font-family:var(--f-mono);font-size:12px}
+ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.steps-ai li{transition:color .2s}.steps-ai li:hover{color:var(--fg)}
+.empty{border:1px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted)}
+
+/* ---------- tests ---------- */
+.evidence{display:grid;gap:10px;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.tests-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--panel-2)}
+.tests-bar i{display:block;height:100%;transition:width 1s var(--ease)}
+.diff{display:grid;gap:6px}
+
+/* ---------- floating dock with sliding indicator ---------- */
+.dock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;padding:6px;border-radius:999px;
+  background:color-mix(in srgb,var(--panel) 72%,transparent);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+  border:1px solid var(--line);box-shadow:0 16px 44px -14px var(--shadow);z-index:5}
+.dock a{position:relative;z-index:1;color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;padding:8px 16px;border-radius:999px;transition:color .25s}
+.dock a:hover{color:var(--fg)}
+.dock a.on{color:var(--bg)}
+.dock .ind{position:absolute;top:6px;bottom:6px;border-radius:999px;background:var(--fg);transition:left .45s var(--spring),width .45s var(--spring)}
+.totop{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));width:42px;height:42px;border-radius:50%;
+  border:1px solid var(--line);background:var(--panel);transform:translateY(80px);transition:transform .4s var(--spring),border-color .2s;z-index:5}
+.totop.on{transform:none}.totop:hover{border-color:var(--slate);transform:translateY(-3px)}
+.toast{visibility:hidden;position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translate(-50%,-140%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;
+  font-size:14px;font-weight:500;transition:transform .45s var(--spring);pointer-events:none;z-index:8;box-shadow:0 12px 30px -10px var(--shadow);max-width:calc(100% - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toast.on{visibility:visible;transform:translate(-50%,0)}
+
+@media (max-width:760px){.rail{grid-template-columns:repeat(3,1fr)}.rail-line{display:none}.stats{grid-template-columns:repeat(2,1fr)}.dist{grid-template-columns:1fr;justify-items:center}.bars{width:100%}
+  .pkg-h{grid-template-columns:auto 1fr auto}.pkg-h .meta{display:none}.bar-row{grid-template-columns:80px 1fr 20px}.dock a{padding:8px 11px;font-size:13px}.totop{display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ---------- real-app additions ---------- */
+.topbar{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));z-index:6}
+.iconbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;transition:transform .25s var(--spring),border-color .2s}
+.iconbtn:hover{transform:translateY(-2px) rotate(-12deg);border-color:var(--slate)}
+.step.fail{border-color:var(--high)}.step.fail b::before{background:var(--high)}
+.ghost-state{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.ghost-state div{border:1px dashed var(--line);border-radius:14px;padding:16px;color:var(--muted);font-size:13px;transition:border-color .2s,transform .3s var(--spring)}
+.ghost-state div:hover{border-color:var(--slate);transform:translateY(-2px)}
+.ghost-state b{display:block;color:var(--fg);font-size:14px;margin-bottom:4px}
+.sev.none{color:var(--muted);background:var(--panel-2)}
+.pkg[data-lv="none"]{--sevc:var(--line)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0}
+.change{display:grid;gap:4px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--panel)}
+.change pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12.5px var(--f-mono);border-radius:6px;padding:4px 8px}
+.change .before{background:var(--high-bg)}.change .after{background:var(--obs-bg)}
+.err{color:var(--high)}
+details.raw{border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--panel-2)}
+details.raw summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.raw pre{white-space:pre-wrap;word-break:break-word;font:12px var(--f-mono);max-height:300px;overflow:auto;margin:8px 0 0}
+.limits{display:grid;gap:6px;margin:12px 0 0;padding-left:20px;color:var(--muted)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.btn[aria-disabled="true"]{opacity:.45;pointer-events:none}
+.dl{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:760px){.ghost-state{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><h1>DependencyGuard <span>dependency risk → Gemma 4 migration plan → test evidence → Exit Capsule</span></h1></header>
-<main>
-  <div class="bar">
-    <input id="repo" type="text" value="https://github.com/rishrek/LinkWatch" aria-label="Repository URL or local path">
-    <label><input id="gemma" type="checkbox" checked> Ask Gemma 4</label>
-    <label><input id="tests" type="checkbox"> Run tests (slow, ~2–4 min)</label>
-    <button id="scanBtn" class="secondary">Quick scan</button>
-    <button id="capBtn">Generate Exit Capsule</button>
-  </div>
-  <div class="legend"><span class="tag t-obs">OBSERVED</span> read from the repo, PyPI, or executed tests &nbsp;·&nbsp;
-    <span class="tag t-ai">AI-GENERATED</span> Gemma 4 suggestion, not verified</div>
-  <div id="status"></div>
-  <div id="downloads" style="display:none" class="bar">
-    <a href="/api/capsule/latest.md"><button class="secondary">Download capsule (.md)</button></a>
-    <a href="/api/capsule/latest.json"><button class="secondary">Download capsule (.json)</button></a>
-  </div>
-  <div id="summary" class="summary"></div>
-  <div id="results"></div>
-</main>
+<div class="progress" id="progress"></div>
+<div class="topbar"><button class="iconbtn" id="theme" aria-label="Toggle light or dark theme" title="Toggle theme">◐</button></div>
+<div class="wrap">
+  <header class="hero" id="top">
+    <div class="wordmark" aria-hidden="true"><span>DEPENDENCY</span><span style="animation-delay:.12s">GUARD</span></div>
+    <div class="tag">Hacktoberfest 2026 · Track 1 · TheRepoRebels</div>
+    <h1>Know what breaks before it breaks.</h1>
+    <p>Scan a Python repo, see every risky dependency and the exact lines that use it, get a Gemma 4 migration plan, and prove it with real test runs.</p>
+  </header>
+
+  <section class="run spot" id="run" aria-label="Run an analysis">
+    <div class="run-row">
+      <label class="field" for="repo"><span class="tag">repo</span><input id="repo" value="https://github.com/rishrek/LinkWatch" autocomplete="off" spellcheck="false" aria-label="GitHub URL or local folder path"></label>
+      <button class="btn btn-ghost" id="quick"><span class="spin"></span><span class="lab">Quick scan</span></button>
+      <button class="btn btn-primary" id="go"><span class="spin"></span><span class="lab">Generate Exit Capsule</span></button>
+    </div>
+    <div class="examples">Try: <button data-ex="https://github.com/rishrek/LinkWatch">rishrek/LinkWatch</button><span>· any public Python repo URL or a local folder path</span></div>
+    <div class="toggles">
+      <span class="chip" role="switch" tabindex="0" aria-pressed="true" aria-checked="true" id="t-gemma"><span class="dot"></span>Ask Gemma 4</span>
+      <span class="chip" role="switch" tabindex="0" aria-pressed="false" aria-checked="false" id="t-tests"><span class="dot"></span>Run tests</span>
+      <span class="hint" id="eta"></span>
+    </div>
+    <div class="rail" id="rail"></div>
+    <div class="hint" id="railnote" style="color:var(--muted);font-size:12px">Step timing is estimated while the server works; results appear when it finishes.</div>
+  </section>
+
+  <section id="overview">
+    <div class="sec-h"><div><h2 tabindex="0">Overview</h2><div class="sub" id="ov-sub">Run a scan to see what DependencyGuard finds</div></div>
+      <div class="dl">
+        <a class="btn btn-ghost" id="dl-md" href="/api/capsule/latest.md" aria-disabled="true" title="Generate an Exit Capsule first">↓ Capsule .md</a>
+        <a class="btn btn-ghost" id="dl-json" href="/api/capsule/latest.json" aria-disabled="true" title="Generate an Exit Capsule first">↓ .json</a>
+      </div></div>
+    <div id="ov-body">
+      <div class="ghost-state">
+        <div><b>Observed facts</b>Dependency files, imports and every usage line, read from the repository without running it.</div>
+        <div><b>Evidence-based risk</b>Conflicting pins, stale releases, private APIs and monkeypatches, each with its source.</div>
+        <div><b>Gemma 4 + tests</b>A migration plan per risky package, checked against real pytest runs.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="risks">
+    <div class="sec-h"><div><h2 tabindex="0">Dependencies</h2><div class="sub">Click a card for evidence, usages and the Gemma 4 plan</div></div>
+      <div class="filters" id="filters">
+        <span class="chip" role="button" tabindex="0" aria-pressed="true" data-f="all">All <span class="n" data-c="all">0</span></span>
+        <span class="chip" role="button" tabindex="0" aria-pressed="false" data-f="high">High <span class="n" data-c="high">0</span></span>
+        <span class="chip" role="button" tabindex="0" aria-pressed="false" data-f="med">Medium <span class="n" data-c="med">0</span></span>
+        <span class="chip" role="button" tabindex="0" aria-pressed="false" data-f="low">Low / none <span class="n" data-c="low">0</span></span>
+        <label class="search" for="q">⌕<input id="q" placeholder="Search package" autocomplete="off"><kbd>/</kbd></label>
+      </div>
+    </div>
+    <div class="list-tools"><span id="count">No scan yet</span><span><button class="linkbtn" id="expand">Expand all</button> · <button class="linkbtn" id="collapse">Collapse all</button></span></div>
+    <div class="list" id="list"><div class="empty">Run a quick scan or generate an Exit Capsule to list dependencies.</div></div>
+  </section>
+
+  <section id="tests">
+    <div class="sec-h"><div><h2 tabindex="0">Test evidence</h2><div class="sub">The repository's own pytest suite, run in a throwaway venv</div></div></div>
+    <div class="evidence spot" id="tests-body"><div class="muted" style="color:var(--muted)">Tick <b>Run tests</b> and generate an Exit Capsule to get executed evidence.</div></div>
+  </section>
+
+  <section id="limits">
+    <div class="sec-h"><div><h2 tabindex="0">Limitations</h2><div class="sub">What this analysis cannot see, stated up front</div></div></div>
+    <ul class="limits" id="limits-list"><li>Run a scan to load the limitations reported by the backend.</li></ul>
+  </section>
+</div>
+
+<nav class="dock" id="dock" aria-label="Sections"><span class="ind" id="dockind"></span>
+  <a href="#top">Run</a><a href="#overview">Overview</a><a href="#risks">Risks</a><a href="#tests">Tests</a>
+</nav>
+<button class="totop" id="totop" aria-label="Back to top">↑</button>
+<div class="toast" id="toast" role="status"></div>
+
 <script>
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const tag = (cls, text) => `<span class="tag ${cls}">${esc(text)}</span>`;
+"use strict";
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const LV={high:"high",medium:"med",low:"low",none:"none"}, LV_NAME={high:"high",med:"medium",low:"low",none:"none"};
+const STATUS={used_and_declared:"used and declared",used_not_declared:"used, not declared",declared_not_imported:"declared, never imported"};
+const state={pkgs:[],filter:"all",q:"",open:new Set(),tab:{},capsule:null,busy:false};
 
-function busy(on, msg) {
-  $("scanBtn").disabled = $("capBtn").disabled = on;
-  $("status").innerHTML = msg || "";
+/* ---------- theme ---------- */
+try{const t=localStorage.getItem("dg-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}
+$("#theme").onclick=()=>{const cur=document.documentElement.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");
+  const next=cur==="light"?"dark":"light";document.documentElement.dataset.theme=next;try{localStorage.setItem("dg-theme",next)}catch(e){}};
+
+/* ---------- small helpers ---------- */
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2200)}
+function placeInd(container,active){const ind=container&&container.querySelector(".ind");if(!ind||!active)return;ind.style.left=active.offsetLeft+"px";ind.style.width=active.offsetWidth+"px"}
+const on=id=>$(id).getAttribute("aria-pressed")==="true";
+
+/* ripple, spotlight, tilt */
+document.addEventListener("pointerdown",e=>{const b=e.target.closest(".btn");if(!b||b.disabled||reduce)return;const r=b.getBoundingClientRect(),s=Math.max(r.width,r.height),sp=document.createElement("span");
+  sp.className="ripple";sp.style.cssText=`width:${s}px;height:${s}px;left:${e.clientX-r.left-s/2}px;top:${e.clientY-r.top-s/2}px`;b.appendChild(sp);setTimeout(()=>sp.remove(),650)});
+document.addEventListener("pointermove",e=>{const s=e.target.closest(".spot,.pkg");if(!s)return;const r=s.getBoundingClientRect();s.style.setProperty("--mx",e.clientX-r.left+"px");s.style.setProperty("--my",e.clientY-r.top+"px")});
+function bindTilt(){$$(".tilt").forEach(t=>{t.onpointermove=e=>{if(reduce)return;const r=t.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+  t.style.transform=`translateY(-4px) rotateX(${-y*10}deg) rotateY(${x*10}deg)`};t.onpointerleave=()=>t.style.transform=""})}
+
+/* ---------- normalise both API shapes into one package model ---------- */
+function fromScan(p){return{n:p.distribution,lv:LV[p.risk_level]||"none",status:p.status,imports:p.import_names||[],
+  declared:(p.declared_in||[]).map(d=>({source_file:d.source_file,line:d.line,specifier:d.specifier,scope:d.scope})),
+  pypi:p.pypi,ind:p.risk_indicators||[],use:(p.usages||[]).map(u=>({file:u.file,line:u.line,kind:u.kind,symbol:u.symbol,code:u.code})),
+  ai:null,test:undefined,gaps:null,concerns:null}}
+function fromCapsule(p){return{n:p.dependency.distribution,lv:LV[p.risk_level]||"none",status:p.dependency.status,imports:p.dependency.import_names||[],
+  declared:p.dependency.declared_in||[],pypi:p.dependency.pypi,ind:p.risk_indicators_OBSERVED||[],use:p.usage_locations_OBSERVED||[],
+  ai:p.ai_recommendation_UNVERIFIED,test:p.executed_tests_OBSERVED,gaps:p.compatibility_gaps,concerns:p.open_concerns}}
+
+/* ---------- pipeline rail (estimated timing; never claims done before the server answers) ---------- */
+const STEPS=[["Clone",2.5],["Scan",1.5],["PyPI",2.5],["Risk",.5],["Gemma 4",90],["Tests",150]];
+function railPlan(quick){return STEPS.map(([n,t],i)=>({n,t,on:i<4||(!quick&&((n==="Gemma 4"&&on("#t-gemma"))||(n==="Tests"&&on("#t-tests"))))}))}
+function drawRail(plan,mode){$("#rail").innerHTML=`<div class="rail-line"><i id="railfill"></i></div>`+plan.map(s=>`<div class="step ${!s.on?"skip":mode}"><b>${s.n}</b><small>${!s.on?"off":mode==="done"?"done":"waiting"}</small></div>`).join("");
+  $("#railfill").style.width=mode==="done"?"100%":"0"}
+function updateEta(){const g=on("#t-gemma"),t=on("#t-tests");$("#eta").textContent="Estimated "+(t&&g?"4–6 min":t?"2–4 min":g?"~2 min":"a few seconds");if(!state.busy)drawRail(railPlan(false),"")}
+let railTimer=null;
+function startRail(quick){const plan=railPlan(quick);drawRail(plan,"");const steps=$$("#rail .step"),active=plan.map((s,i)=>s.on?i:-1).filter(i=>i>=0);let k=0;const t0=performance.now();
+  const advance=()=>{if(k>0){const prev=steps[active[k-1]];prev.className="step done";prev.querySelector("small").textContent="done"}
+    $("#railfill").style.width=(k/active.length*100)+"%";
+    if(k<active.length){const cur=steps[active[k]];cur.className="step run";cur.querySelector("small").textContent="working…";
+      if(k<active.length-1){const wait=plan[active[k]].t*1000;k++;railTimer=setTimeout(advance,reduce?Math.min(wait,300):wait)}}};
+  advance();
+  return{finish(ok){clearTimeout(railTimer);const secs=((performance.now()-t0)/1000).toFixed(0);
+    steps.forEach((s,i)=>{if(!plan[i].on)return;if(ok){s.className="step done";s.querySelector("small").textContent="done"}else if(s.classList.contains("run")){s.className="step fail";s.querySelector("small").textContent="failed"}});
+    if(ok){$("#railfill").style.width="100%";$("#railnote").textContent=`Finished in ${secs}s.`}}}}
+
+/* ---------- API ---------- */
+async function api(url,opts){const res=await fetch(url,opts);let data={};try{data=await res.json()}catch(e){}
+  if(!res.ok)throw new Error(typeof data.detail==="string"?data.detail:`Server returned ${res.status}`);return data}
+
+async function run(quick){
+  if(state.busy)return;const repo=$("#repo").value.trim();if(!repo){toast("Enter a GitHub URL or folder path first");$("#repo").focus();return}
+  state.busy=true;const btn=quick?$("#quick"):$("#go");$("#go").disabled=$("#quick").disabled=true;btn.classList.add("loading");
+  const lab=btn.querySelector(".lab"),orig=lab.textContent;lab.textContent=quick?"Scanning…":"Generating…";$("#railnote").textContent="Step timing is estimated while the server works; results appear when it finishes.";
+  const rail=startRail(quick);
+  try{
+    if(quick){const scan=await api("/api/scan?repo="+encodeURIComponent(repo));state.capsule=null;state.pkgs=scan.packages.map(fromScan);
+      renderAll({limitations:scan.limitations,parse:scan.imports.parse_failures,ai:null,tests:null});rail.finish(true);toast("Quick scan complete");}
+    else{const c=await api("/api/capsule",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({repo,use_gemma:on("#t-gemma"),run_tests:on("#t-tests")})});
+      state.capsule=c;state.pkgs=c.packages.map(fromCapsule);
+      renderAll({limitations:c.limitations,parse:c.parse_failures,ai:c.ai_model,tests:c.test_execution_OBSERVED,summary:c.summary});rail.finish(true);toast("Exit Capsule ready");}
+    document.getElementById("overview").scrollIntoView({behavior:reduce?"auto":"smooth"});
+  }catch(err){rail.finish(false);toast(err.message);$("#railnote").innerHTML=`<span class="err">${esc(err.message)}</span>`}
+  finally{state.busy=false;$("#go").disabled=$("#quick").disabled=false;btn.classList.remove("loading");lab.textContent=orig}
 }
 
-async function call(url, opts) {
-  const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || res.statusText);
-  return data;
+/* ---------- rendering ---------- */
+function counts(){const c={all:state.pkgs.length,high:0,med:0,low:0};state.pkgs.forEach(p=>{if(p.lv==="high")c.high++;else if(p.lv==="med")c.med++;else c.low++});return c}
+function renderAll(ctx){
+  const c=counts();state.open=new Set(state.pkgs.filter(p=>p.lv==="high").slice(0,1).map(p=>p.n));state.tab={};state.filter="all";state.q="";$("#q").value="";
+  $$("[data-c]").forEach(e=>e.textContent=c[e.dataset.c]);
+  const s=ctx.summary,b=s&&s.baseline;
+  const tests=s?(s.tests_executed&&b?`${b.passed} / ${b.failed+b.errors}`:"not run"):"—";
+  $("#ov-sub").textContent=state.capsule?"Exit Capsule generated · AI output is labelled unverified":"Quick scan · observed facts only, no AI";
+  $("#ov-body").innerHTML=`<div class="stats">
+    <div class="stat tilt"><b data-count="${c.all}">0</b><span>Packages</span></div>
+    <div class="stat tilt"><b class="c-high" data-count="${c.high}">0</b><span>High risk</span></div>
+    <div class="stat tilt"><b class="c-med" data-count="${c.med}">0</b><span>Medium risk</span></div>
+    <div class="stat tilt"><b>${esc(tests)}</b><span>Tests pass / fail</span></div>
+    <div class="stat tilt"><b class="model">${esc(ctx.ai?ctx.ai.name:"not used")}</b><span>AI model</span></div></div>
+    <div class="dist spot"><div class="donut">${donut(c)}<div class="donut-c"><b id="dc-n">${c.all}</b><span id="dc-l">packages</span></div></div><div class="bars" id="bars"></div></div>`;
+  bindTilt();countUp();bars();bindDonut(c);
+  ["#dl-md","#dl-json"].forEach(id=>{const a=$(id);a.setAttribute("aria-disabled",state.capsule?"false":"true");a.title=state.capsule?"Download the Exit Capsule":"Generate an Exit Capsule first"});
+  renderTests(ctx.tests);
+  $("#limits-list").innerHTML=(ctx.limitations||[]).map(l=>`<li>${esc(l)}</li>`).join("")+((ctx.parse||[]).length?`<li>Files that could not be parsed: ${ctx.parse.map(f=>esc(f.file)).join(", ")}</li>`:"");
+  renderList();
 }
+function donut(c){const total=c.all||1,parts=[["high",c.high,"var(--high)"],["med",c.med,"var(--med)"],["low",c.low,"var(--low)"]];let off=25,out=`<svg width="150" height="150" viewBox="0 0 42 42" role="img" aria-label="Risk split: ${c.high} high, ${c.med} medium, ${c.low} low or none. Click a segment to filter."><circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--panel-2)" stroke-width="5"></circle>`;
+  parts.forEach(([k,v,col])=>{if(!v)return;const len=v/total*100;out+=`<circle class="seg" data-f="${k}" cx="21" cy="21" r="15.9" fill="none" stroke="${col}" stroke-width="5" stroke-dasharray="${len} ${100-len}" stroke-dashoffset="${off}"></circle>`;off-=len});return out+"</svg>"}
+function bindDonut(c){const lab={high:[c.high,"high risk"],med:[c.med,"medium risk"],low:[c.low,"low / none"]};
+  $$(".seg").forEach(s=>{s.onpointerenter=()=>{$("#dc-n").textContent=lab[s.dataset.f][0];$("#dc-l").textContent=lab[s.dataset.f][1]};s.onpointerleave=()=>{$("#dc-n").textContent=c.all;$("#dc-l").textContent="packages"}})}
+function bars(){const col={high:"var(--high)",med:"var(--med)",low:"var(--low)",none:"var(--line)"};
+  const rows=[...state.pkgs].filter(p=>p.ind.length).sort((a,b)=>b.ind.length-a.ind.length).slice(0,8),max=Math.max(1,...rows.map(p=>p.ind.length));
+  $("#bars").innerHTML=`<div class="cap">Risk indicators per package · click to open</div>`+(rows.map(p=>`<div class="bar-row" data-jump="${esc(p.n)}" title="${esc(p.n)}: ${p.ind.length} indicator(s)"><span class="mono">${esc(p.n)}</span><span class="bar"><i style="background:${col[p.lv]}" data-w="${p.ind.length/max*100}"></i></span><span class="mono">${p.ind.length}</span></div>`).join("")||`<div class="cap">No risk indicators found</div>`);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>$$("#bars i").forEach(i=>i.style.width=i.dataset.w+"%")))}
+function countUp(){$$("[data-count]").forEach(el=>{const end=+el.dataset.count;if(reduce){el.textContent=end;return}let t0=null;const st=ts=>{t0??=ts;const k=Math.min((ts-t0)/800,1);el.textContent=Math.round(end*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(st)};requestAnimationFrame(st)})}
 
-function list(items, fn) { return items && items.length ? "<ul>" + items.map(fn).join("") + "</ul>" : '<p class="muted">none</p>'; }
+function tabsFor(p){const t=[["evidence","Evidence"],["usages",`Usages (${p.use.length})`]];if(p.ai)t.push(["plan","Gemma 4 plan"]);if(p.test!==undefined&&state.capsule)t.push(["tests","Tests"]);if(p.gaps)t.push(["gaps","Gaps & concerns"]);return t}
+function pane(p,tab){
+  if(tab==="evidence"){const m=p.pypi&&p.pypi.available?p.pypi:null;
+    return `<div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Declarations</div>
+      ${p.declared.map(d=>`<div class="loc"><code>${esc(d.source_file)}:${esc(d.line??"?")}</code><span class="mono">${esc(d.specifier||"any version")}</span><em>${esc(d.scope)}</em></div>`).join("")||`<div class="loc"><em>not declared in any dependency file</em></div>`}
+      ${m?`<dl class="kv"><dt>Latest on PyPI</dt><dd class="mono">${esc(m.latest_version)} · ${esc((m.latest_release_date||"").slice(0,10))}</dd><dt>Pinned</dt><dd class="mono">${esc(m.pinned_version||"—")} ${m.pinned_release_date?"· "+esc(m.pinned_release_date.slice(0,10)):""}</dd></dl>`:""}</div>
+      <div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Risk indicators</div>
+      ${p.ind.map(i=>`<div><span class="sev ${LV[i.severity]||"low"}">${esc(i.severity)}</span> ${esc(i.message)} <span style="color:var(--muted);font-size:12px">· ${esc(i.source)}</span></div>`).join("")||`<div style="color:var(--muted)">No risk indicators.</div>`}</div>`}
+  if(tab==="usages")return `<div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Usage locations · click a path to copy</div>
+      ${p.use.map(u=>`<div class="loc"><code>${esc(u.file)}:${esc(u.line)}</code><em>${esc(u.kind)}</em><span class="mono">${esc(u.symbol)}</span></div>${u.code?`<div class="mono" style="color:var(--muted);font-size:12px;margin:-4px 0 4px 6px">${esc(u.code)}</div>`:""}`).join("")||`<div class="loc"><em>no usages found</em></div>`}</div>`;
+  if(tab==="plan"){const a=p.ai;if(a.error)return `<div class="blk ai"><div class="lbl"><span class="pill ai">AI</span>Gemma 4</div><div class="err">Gemma request failed: ${esc(a.error)}</div></div>`;
+    return `<div class="blk ai"><div class="lbl"><span class="pill ai">AI-GENERATED · UNVERIFIED</span>${esc(a.model)} · self-reported confidence: ${esc(a.confidence||"?")}</div>
+      <div><b>${esc(a.action)}</b> → <span class="mono">${esc(a.replacement)}</span></div>${a.rationale?`<div>${esc(a.rationale)}</div>`:""}
+      ${(a.migration_steps||[]).length?`<div class="lbl">Migration steps</div><ol class="steps-ai">${a.migration_steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>`:""}
+      ${(a.code_changes||[]).length?`<div class="lbl">Proposed code changes</div>${a.code_changes.map(ch=>`<div class="change"><span class="mono" style="font-size:12px">${esc(ch.file)}:${esc(ch.line)}</span><pre class="before">- ${esc(ch.before)}</pre><pre class="after">+ ${esc(ch.after)}</pre></div>`).join("")}`:""}
+      ${(a.suggested_tests||[]).length?`<div class="lbl">Suggested tests</div><ul style="margin:0;padding-left:20px">${a.suggested_tests.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`:""}</div>`}
+  if(tab==="tests"){const t=p.test;if(!t)return `<div class="blk"><div style="color:var(--muted)">No upgrade test was executed for this package.</div></div>`;
+    if(!t.installed)return `<div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Upgrade test</div><div class="err">Could not install ${esc(p.n)}==${esc(t.tried_version)}</div></div>`;
+    const r=t.result;return `<div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Upgrade test · ${esc(p.n)} ${esc(t.original_version)} → ${esc(t.tried_version)}</div>
+      <div><b>${r.passed} passed</b> · <span class="c-high">${r.failed} failed</span> · ${r.errors} errors · ${esc(r.seconds)}s</div>
+      ${t.newly_failing.map(x=>`<div class="loc"><code>${esc(x)}</code><em class="err">newly failing</em></div>`).join("")}
+      ${t.newly_passing.map(x=>`<div class="loc"><code>${esc(x)}</code><em>newly passing</em></div>`).join("")}</div>`}
+  if(tab==="gaps"){const g=p.gaps;return `<div class="blk"><div class="lbl"><span class="pill obs">OBSERVED</span>Compatibility gaps</div>${g.observed.map(x=>`<div>${esc(x)}</div>`).join("")||`<div style="color:var(--muted)">None observed.</div>`}</div>
+      ${g.ai_predicted_unverified.length?`<div class="blk ai"><div class="lbl"><span class="pill ai">AI-PREDICTED · UNVERIFIED</span></div>${g.ai_predicted_unverified.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
+      <div class="blk" style="border-color:var(--line)"><div class="lbl">Open concerns</div>${(p.concerns||[]).map(x=>`<div>${esc(x)}</div>`).join("")||`<div style="color:var(--muted)">None.</div>`}</div>`}
+  return ""}
+function card(p,i){const tabs=tabsFor(p),tab=tabs.some(t=>t[0]===state.tab[p.n])?state.tab[p.n]:"evidence",open=state.open.has(p.n);
+  const imp=p.imports.length&&p.imports[0]!==p.n?` · import ${esc(p.imports.join(", "))}`:"";
+  return `<article class="pkg spot" data-lv="${p.lv}" data-n="${esc(p.n)}" data-open="${open}" style="animation-delay:${Math.min(i,12)*45}ms">
+  <button class="pkg-h" aria-expanded="${open}"><span class="sev ${p.lv}">${LV_NAME[p.lv]}</span><span class="name">${esc(p.n)}</span><span class="meta">${esc(STATUS[p.status]||p.status)}${imp} · ${p.use.length} usage(s)</span><span class="caret">›</span></button>
+  <div class="body"><div><div class="inner">
+    <div class="tabs" role="tablist"><span class="ind"></span>${tabs.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${k===tab}">${esc(l)}</button>`).join("")}</div>
+    <div class="pane">${pane(p,tab)}</div></div></div></div></article>`}
+function renderList(){
+  if(!state.pkgs.length){$("#list").innerHTML=`<div class="empty">No Python dependencies found. Is this a Python repository?</div>`;$("#count").textContent="0 packages";return}
+  const rows=state.pkgs.filter(p=>(state.filter==="all"||p.lv===state.filter||(state.filter==="low"&&p.lv==="none"))&&p.n.toLowerCase().includes(state.q));
+  $("#list").innerHTML=rows.map(card).join("")||`<div class="empty">No packages match this filter. <button class="linkbtn" id="clear">Clear filters</button></div>`;
+  $("#count").textContent=`Showing ${rows.length} of ${state.pkgs.length} packages`;
+  $$("#filters .chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.f===state.filter));
+  requestAnimationFrame(()=>$$(".pkg .tabs").forEach(t=>placeInd(t,t.querySelector('[aria-selected="true"]'))))}
+function renderTests(t){const box=$("#tests-body");
+  if(!t){box.innerHTML=`<div style="color:var(--muted)">Tick <b>Run tests</b> and generate an Exit Capsule to get executed evidence.</div>`;return}
+  if(!t.executed){box.innerHTML=`<div class="lbl"><span class="pill obs">OBSERVED</span>Tests not executed</div><div>${esc(t.reason)}</div>${t.install_output_tail?`<details class="raw"><summary>Installer output</summary><pre>${esc(t.install_output_tail)}</pre></details>`:""}`;return}
+  const b=t.baseline,total=Math.max(1,b.passed+b.failed+b.errors),cands=state.pkgs.filter(p=>p.test&&p.test.installed);
+  box.innerHTML=`<div class="lbl"><span class="pill obs">OBSERVED</span>Baseline run · declared versions · Python ${esc(t.python)}</div>
+    <div class="tests-bar" aria-label="${b.passed} passed, ${b.failed+b.errors} failed"><i style="width:0;background:var(--obs)" data-w="${b.passed/total*100}"></i><i style="width:0;background:var(--high)" data-w="${(b.failed+b.errors)/total*100}"></i></div>
+    <div><b>${b.passed} passed</b> · <b class="c-high">${b.failed} failed</b> · ${b.errors} errors · ${esc(b.seconds)}s · ${esc(t.isolation)}</div>
+    ${b.failed_tests.map(x=>`<div class="loc"><code>${esc(x)}</code><em>fails at baseline</em></div>`).join("")}
+    ${cands.length?`<div class="lbl" style="margin-top:6px">Drop-in upgrade runs</div>${cands.map(p=>`<div class="loc"><code>${esc(p.n)} ${esc(p.test.original_version)} → ${esc(p.test.tried_version)}</code><em>${p.test.result.passed} passed · ${p.test.result.failed} failed${p.test.newly_passing.length?` · ${p.test.newly_passing.length} newly passing`:""}${p.test.newly_failing.length?` · ${p.test.newly_failing.length} newly failing`:""}</em></div>`).join("")}`:""}
+    <details class="raw"><summary>Raw pytest output (baseline)</summary><pre>${esc(b.output_tail)}</pre></details>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>box.querySelectorAll(".tests-bar i").forEach(i=>i.style.width=i.dataset.w+"%")))}
 
-function renderScan(scan) {
-  const pk = scan.packages;
-  $("summary").innerHTML = [
-    ["Packages", pk.length], ["High risk", pk.filter(p => p.risk_level === "high").length],
-    ["Medium risk", pk.filter(p => p.risk_level === "medium").length],
-    ["Parse failures", scan.imports.parse_failures.length]
-  ].map(([k, v]) => `<div class="card stat"><b>${v}</b><span class="muted">${k}</span></div>`).join("");
-  $("results").innerHTML = pk.map(p => pkgCard({
-    name: p.distribution, level: p.risk_level, status: p.status, imports: p.import_names,
-    declared: p.declared_in, pypi: p.pypi, indicators: p.risk_indicators,
-    usages: p.usages.map(u => ({file:u.file, line:u.line, kind:u.kind, symbol:u.symbol, code:u.code}))
-  })).join("");
-}
+/* ---------- interactions ---------- */
+function setAll(open){$$(".pkg").forEach(c=>{open?state.open.add(c.dataset.n):state.open.delete(c.dataset.n);c.dataset.open=open;c.querySelector(".pkg-h").setAttribute("aria-expanded",open)});
+  if(open)requestAnimationFrame(()=>$$(".pkg .tabs").forEach(t=>placeInd(t,t.querySelector('[aria-selected="true"]'))))}
+document.addEventListener("click",e=>{
+  const h=e.target.closest(".pkg-h");if(h){const c=h.closest(".pkg"),n=c.dataset.n;state.open.has(n)?state.open.delete(n):state.open.add(n);c.dataset.open=state.open.has(n);h.setAttribute("aria-expanded",state.open.has(n));
+    const t=c.querySelector(".tabs");requestAnimationFrame(()=>placeInd(t,t.querySelector('[aria-selected="true"]')));return}
+  const tb=e.target.closest(".tabs button");if(tb){const c=tb.closest(".pkg"),n=c.dataset.n;state.tab[n]=tb.dataset.tab;const p=state.pkgs.find(x=>x.n===n);
+    const tmp=document.createElement("div");tmp.innerHTML=card(p,0);const nc=tmp.firstElementChild;nc.style.animation="none";c.replaceWith(nc);
+    const tabs=nc.querySelector(".tabs");placeInd(tabs,tabs.querySelector('[aria-selected="true"]'));return}
+  const code=e.target.closest(".loc code");if(code){const t=code.textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Copied "+t),()=>toast(t));return}
+  const chip=e.target.closest(".chip");if(chip){if(chip.dataset.f){state.filter=chip.dataset.f;renderList()}else{const v=chip.getAttribute("aria-pressed")!=="true";chip.setAttribute("aria-pressed",v);chip.setAttribute("aria-checked",v);updateEta()}return}
+  const seg=e.target.closest(".seg");if(seg){state.filter=state.filter===seg.dataset.f?"all":seg.dataset.f;renderList();document.getElementById("risks").scrollIntoView({behavior:reduce?"auto":"smooth"});return}
+  const j=e.target.closest("[data-jump]");if(j){state.filter="all";state.q="";$("#q").value="";state.open.add(j.dataset.jump);renderList();
+    requestAnimationFrame(()=>{const el=[...$$(".pkg")].find(x=>x.dataset.n===j.dataset.jump);if(!el)return;el.scrollIntoView({behavior:reduce?"auto":"smooth",block:"center"});
+      el.animate([{boxShadow:"0 0 0 4px var(--slate)"},{boxShadow:"0 0 0 0 transparent"}],{duration:1400,easing:"ease-out"})});return}
+  if(e.target.id==="clear"){state.filter="all";state.q="";$("#q").value="";renderList();return}
+  const ex=e.target.closest("[data-ex]");if(ex){$("#repo").value=ex.dataset.ex;$("#repo").focus();toast("Repository set")}
+  const dl=e.target.closest(".dl a");if(dl&&dl.getAttribute("aria-disabled")!=="true")toast("Downloading capsule…");
+});
+$("#expand").onclick=()=>setAll(true);$("#collapse").onclick=()=>setAll(false);
+$("#q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase();renderList()});
+$("#go").onclick=()=>run(false);$("#quick").onclick=()=>run(true);
+$("#repo").addEventListener("keydown",e=>{if(e.key==="Enter")run(false)});
+$("#totop").onclick=()=>window.scrollTo({top:0,behavior:reduce?"auto":"smooth"});
+document.addEventListener("keydown",e=>{const typing=["INPUT","TEXTAREA"].includes(document.activeElement.tagName);
+  if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("chip")){e.preventDefault();e.target.click()}
+  if(e.key==="/"&&!typing){e.preventDefault();$("#q").focus()}
+  if(e.key==="Escape"){if(typing)document.activeElement.blur();else setAll(false)}});
 
-function renderCapsule(c) {
-  const s = c.summary;
-  const base = s.baseline ? `${s.baseline.passed} passed / ${s.baseline.failed} failed` : "not run";
-  $("summary").innerHTML = [["Packages", s.packages], ["High risk", s.high_risk], ["Medium risk", s.medium_risk],
-    ["Baseline tests", base], ["AI model", c.ai_model ? c.ai_model.name : "not used"]]
-    .map(([k, v]) => `<div class="card stat"><b>${esc(v)}</b><span class="muted">${k}</span></div>`).join("");
-  let html = "";
-  const te = c.test_execution_OBSERVED;
-  if (te && te.executed) {
-    html += `<div class="card"><h3>${tag("t-obs","OBSERVED")} Baseline test run (declared versions)</h3>
-      <p>${te.baseline.passed} passed, ${te.baseline.failed} failed, ${te.baseline.errors} errors · Python ${esc(te.python)} · ${esc(te.isolation)}</p>
-      ${list(te.baseline.failed_tests, t => `<li><code>${esc(t)}</code></li>`)}
-      <details><summary class="muted">pytest output</summary><pre>${esc(te.baseline.output_tail)}</pre></details></div>`;
-  } else if (te) {
-    html += `<div class="card"><h3>Tests</h3><p class="muted">${esc(te.reason)}</p>${te.install_output_tail ? `<pre>${esc(te.install_output_tail)}</pre>` : ""}</div>`;
-  }
-  html += c.packages.map(p => pkgCard({
-    name: p.dependency.distribution, level: p.risk_level, status: p.dependency.status,
-    imports: p.dependency.import_names, declared: p.dependency.declared_in, pypi: p.dependency.pypi,
-    indicators: p.risk_indicators_OBSERVED, usages: p.usage_locations_OBSERVED,
-    ai: p.ai_recommendation_UNVERIFIED, test: p.executed_tests_OBSERVED, gaps: p.compatibility_gaps,
-    concerns: p.open_concerns
-  })).join("");
-  html += `<div class="card"><h3>Limitations</h3>${list(c.limitations, x => `<li>${esc(x)}</li>`)}</div>`;
-  $("results").innerHTML = html;
-  $("downloads").style.display = "flex";
-}
+/* dock, progress bar, back-to-top */
+const links=$$("#dock a");
+function setDock(id){const a=links.find(l=>l.getAttribute("href")==="#"+id);if(!a)return;links.forEach(l=>l.classList.toggle("on",l===a));placeInd($("#dock"),a)}
+const spy=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting)setDock(en.target.id==="limits"?"tests":en.target.id)}),{rootMargin:"-45% 0px -50% 0px"});
+["top","overview","risks","tests","limits"].forEach(id=>spy.observe(document.getElementById(id)));
+addEventListener("scroll",()=>{const h=document.documentElement,p=h.scrollTop/(h.scrollHeight-h.clientHeight||1);$("#progress").style.transform=`scaleX(${p})`;$("#totop").classList.toggle("on",h.scrollTop>500)},{passive:true});
+addEventListener("resize",()=>{const a=links.find(l=>l.classList.contains("on"))||links[0];setDock(a.getAttribute("href").slice(1));$$(".pkg .tabs").forEach(t=>placeInd(t,t.querySelector('[aria-selected="true"]')))});
 
-function pkgCard(p) {
-  const pypi = p.pypi && p.pypi.available
-    ? `<li>PyPI latest <b>${esc(p.pypi.latest_version)}</b> (${esc((p.pypi.latest_release_date||"").slice(0,10))}), pinned ${esc(p.pypi.pinned_version || "—")}</li>` : "";
-  let html = `<details class="pkg" ${p.level === "high" ? "open" : ""}><summary>
-    ${tag("t-" + p.level, p.level.toUpperCase())} <span class="pkgname">${esc(p.name)}</span>
-    <span class="muted">${esc(p.status.replaceAll("_"," "))}${p.imports.length && p.imports[0] !== p.name ? " · import " + esc(p.imports.join(", ")) : ""} · ${p.usages.length} usage(s)</span></summary><div class="body">
-    <div class="obs-box"><h3>${tag("t-obs","OBSERVED")} Declarations</h3>
-    <ul>${p.declared.map(d => `<li><code>${esc(d.source_file)}:${d.line}</code> ${esc(d.specifier || "any version")} (${esc(d.scope)})</li>`).join("") || "<li>not declared</li>"}${pypi}</ul>
-    <h3>${tag("t-obs","OBSERVED")} Risk indicators</h3>${list(p.indicators, i => `<li>${tag("t-"+i.severity, i.severity)} ${esc(i.message)} <span class="muted">— ${esc(i.source)}</span></li>`)}
-    <h3>${tag("t-obs","OBSERVED")} Usage locations</h3>${list(p.usages, u => `<li><code>${esc(u.file)}:${u.line}</code> ${esc(u.kind)} <code>${esc(u.symbol)}</code><br><span class="muted">${esc(u.code)}</span></li>`)}</div>`;
-  if (p.ai) {
-    html += `<div class="ai-box"><h3>${tag("t-ai","AI-GENERATED · UNVERIFIED")} Gemma 4 recommendation</h3>`;
-    if (p.ai.error) html += `<p class="err">Gemma request failed: ${esc(p.ai.error)}</p>`;
-    else html += `<p><b>${esc(p.ai.action)}</b> → <code>${esc(p.ai.replacement)}</code> <span class="muted">(${esc(p.ai.model)}, self-reported confidence: ${esc(p.ai.confidence)})</span></p>
-      <p>${esc(p.ai.rationale)}</p><h3>Migration steps</h3><ol>${(p.ai.migration_steps||[]).map(s => `<li>${esc(s)}</li>`).join("")}</ol>
-      ${(p.ai.code_changes||[]).length ? `<h3>Proposed code changes</h3><ul>${p.ai.code_changes.map(ch => `<li><code>${esc(ch.file)}:${esc(ch.line)}</code><br>before: <code>${esc(ch.before)}</code><br>after: <code>${esc(ch.after)}</code></li>`).join("")}</ul>` : ""}
-      <h3>Suggested tests</h3>${list(p.ai.suggested_tests, t => `<li>${esc(t)}</li>`)}`;
-    html += `</div>`;
-  }
-  if (p.test !== undefined) {
-    html += `<div class="obs-box"><h3>${tag("t-obs","OBSERVED")} Executed tests</h3>`;
-    if (p.test && p.test.installed) html += `<p>With <code>${esc(p.name)}==${esc(p.test.tried_version)}</code> (was ${esc(p.test.original_version)}): ${p.test.result.passed} passed, ${p.test.result.failed} failed, ${p.test.result.errors} errors</p>`;
-    else if (p.test) html += `<p class="err">Could not install ${esc(p.name)}==${esc(p.test.tried_version)}</p>`;
-    else html += `<p class="muted">not executed for this package</p>`;
-    html += `</div>`;
-  }
-  if (p.gaps) {
-    html += `<h3>Compatibility gaps</h3>${list([...p.gaps.observed.map(x => tag("t-obs","OBSERVED") + " " + esc(x)),
-      ...p.gaps.ai_predicted_unverified.map(x => tag("t-ai","AI") + " " + esc(x))], x => `<li>${x}</li>`)}
-      <h3>Open concerns</h3>${list(p.concerns, x => `<li>${esc(x)}</li>`)}`;
-  }
-  return html + `</div></details>`;
-}
+updateEta();drawRail(railPlan(false),"");setDock("top");
+if(document.fonts)document.fonts.ready.then(()=>setDock("top"));
 
-$("scanBtn").onclick = async () => {
-  busy(true, "Scanning repository and reading PyPI metadata…");
-  try { renderScan(await call("/api/scan?repo=" + encodeURIComponent($("repo").value))); busy(false, "Quick scan complete."); }
-  catch (e) { busy(false, `<span class="err">${esc(e.message)}</span>`); }
-};
-$("capBtn").onclick = async () => {
-  const t0 = Date.now();
-  busy(true, "Generating Exit Capsule (scan → risk → Gemma 4" + ($("tests").checked ? " → test runs" : "") + ")…");
-  const timer = setInterval(() => $("status").textContent = `Working… ${Math.round((Date.now()-t0)/1000)}s`, 1000);
-  try {
-    const c = await call("/api/capsule", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({repo: $("repo").value, use_gemma: $("gemma").checked, run_tests: $("tests").checked})});
-    renderCapsule(c); busy(false, `Exit Capsule generated in ${Math.round((Date.now()-t0)/1000)}s.`);
-  } catch (e) { busy(false, `<span class="err">${esc(e.message)}</span>`); }
-  finally { clearInterval(timer); }
-};
 </script>
 </body>
 </html>
