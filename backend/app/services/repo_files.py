@@ -31,7 +31,9 @@ def _should_skip_dir(path: Path) -> bool:
     if path.is_symlink():
         return True
     # Any folder containing pyvenv.cfg is a virtual environment, whatever its name.
-    return (path / "pyvenv.cfg").is_file()
+    # A folder containing .dependencyguard-self is DependencyGuard itself (when it lives
+    # inside a fork of the repository it scans) and must not be scanned as the target.
+    return (path / "pyvenv.cfg").is_file() or (path / ".dependencyguard-self").is_file()
 
 
 def resolve_root(root: str | os.PathLike) -> Path:
