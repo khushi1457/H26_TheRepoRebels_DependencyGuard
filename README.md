@@ -1,227 +1,128 @@
-<div align="center">
+# DependencyGuard
 
-# 🔭 linkwatch
+**Team TheRepoRebels · Hacktoberfest Hack Day Mumbai 2026 · Track 1: Gemma 4 – Dependency Resilience**
 
-**Keep an eye on your websites from the terminal.**
+DependencyGuard is an open-source developer tool that scans a Python repository, finds risky dependencies
+and exactly where they are used, asks **Gemma 4** for a replacement and migration plan, runs the
+repository's own tests against the original and upgraded dependencies, and packages everything into a
+reusable **Dependency Exit Capsule**.
 
-A small, friendly link & uptime checker: list your sites in one file, run one command,
-and get a live status table plus a clean HTML status page you can host anywhere.
+Every result is labelled **OBSERVED** (read from files, PyPI or executed tests) or
+**AI-GENERATED (unverified)** (Gemma 4 output). An AI suggestion is never presented as verified.
 
-![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
-![Interface](https://img.shields.io/badge/interface-CLI-4B4B4B?logo=gnubash&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
+## 1. Problem and solution overview
 
-[Quick start](#-quick-start) •
-[Usage](#-usage) •
-[Configuration](#%EF%B8%8F-configuration) •
-[How it works](#-how-it-works) •
-[Tests](#-running-the-tests)
+Maintainers usually find dependency problems only after something breaks. DependencyGuard makes that
+visible in advance on the organizer-provided repository (https://github.com/rishrek/LinkWatch) or any
+other Python repository:
 
-</div>
+1. **Scan** dependency files (`requirements*.txt`, `pyproject.toml` incl. Poetry, `setup.cfg`) and every
+   `import` (Python AST, no code execution), then match imports to packages and record each usage
+   (file, line, call/reference/decorator/base class/monkeypatch).
+2. **Assess risk from evidence only:** conflicting declarations across files, undeclared imports,
+   private-API use, monkeypatches, major versions behind, no recent release, yanked or
+   Python-incompatible pins (PyPI metadata fetched at scan time).
+3. **Recommend with Gemma 4:** for each medium/high-risk package, Gemma 4 receives the evidence and the
+   real usage lines and returns structured JSON: action, replacement, migration steps, code changes,
+   compatibility warnings, suggested tests, open questions.
+4. **Verify by execution (optional):** the target's own test suite runs in a throwaway venv with the
+   declared versions (baseline), then once per at-risk package upgraded to its latest version.
+   Newly failing / newly passing tests are reported as observed compatibility gaps.
+5. **Exit Capsule:** Markdown + JSON with dependency details, risk indicators, usage locations, proposed
+   replacement, migration steps, suggested tests, executed test results, compatibility gaps,
+   open concerns and limitations.
 
----
+## 2. Setup
 
-## ✨ Features
-
-- 📋 **One config file**: list every site you care about in `sites.toml`
-- ⚡ **Live terminal table**: watch results fill in as each site is checked
-- 🟢 **Clear status**: UP/DOWN, HTTP status code, response time and page title
-- 🕒 **Last-Modified tracking**: see when a page was last updated (when the server reports it)
-- 💾 **Cached results**: the last run is saved, so you can build reports any time
-- 🌐 **HTML status page**: one command turns your results into a shareable `status.html`
-- 🐳 **Docker ready**: run everything without touching your local Python
-
----
-
-## 🖥️ Preview
-
-```text
-$ python -m linkwatch.cli check
-                                    My sites
-┏━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Site    ┃ Status ┃ Code ┃   Time ┃ Title                           ┃
-┡━━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Python  │ UP     │  200 │ 113 ms │ Welcome to Python.org           │
-│ PyPI    │ UP     │  200 │  59 ms │ PyPI · The Python Package Index │
-│ Example │ UP     │  200 │ 204 ms │ Example Domain                  │
-│ GitHub  │ UP     │  200 │ 236 ms │ GitHub                          │
-└─────────┴────────┴──────┴────────┴─────────────────────────────────┘
-4/4 sites up, results saved to ~/.cache/linkwatch/results.json
-```
-
----
-
-## 🚀 Quick start
-
-You only need **one** of the two options below.
-
-### Option A: Docker (no Python setup needed)
+Requires Python **3.12** (LinkWatch does not support 3.14) and Git.
 
 ```bash
-git clone https://github.com/rishrek/linkwatch.git
-cd linkwatch
-make docker-build
-docker run --rm -it linkwatch python -m linkwatch.cli check
+git clone <this repo>
+cd <this repo>/dependencyguard
+bash setup_mac.sh            # macOS/Linux: creates .venv and installs requirements
+# Windows: py -3.12 -m venv .venv ; .\.venv\Scripts\Activate.ps1 ; pip install -r requirements.txt
 ```
 
-### Option B: Local Python 3.12
+Create `dependencyguard/.env` (gitignored, never commit it):
+
+```
+GEMINI_API_KEY=your-google-ai-studio-key
+# optional: pin an exact model id instead of auto-selecting the largest available Gemma 4 model
+# GEMMA_MODEL=gemma-4-...
+```
+
+## 3. Usage
 
 ```bash
-git clone https://github.com/rishrek/linkwatch.git
-cd linkwatch
-make setup                    # creates .venv and installs everything (one time)
-source .venv/bin/activate     # do this in every new terminal
-python -m linkwatch.cli check
+source .venv/bin/activate
+cd backend
+uvicorn app.main:app --reload
 ```
 
-<details>
-<summary><b>On Windows, or without <code>make</code>?</b></summary>
+- Web UI: http://127.0.0.1:8000 → enter a GitHub URL or local path → **Quick scan** or **Generate Exit Capsule**
+  (tick *Run tests* for executed evidence; takes a few minutes) → download the capsule (.md / .json).
+- API docs: http://127.0.0.1:8000/docs (`GET /api/scan`, `POST /api/capsule`, `GET /api/capsule/latest.md|json`).
+- CLI (no server): `python -m app.services.scanner ../../LinkWatch --summary`
 
-```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt -r requirements-dev.txt
-python -m linkwatch.cli check
+## 4. Architecture
+
+```
+backend/app/
+  main.py                FastAPI app + serves static/index.html
+  routers/analysis.py    /api/scan, /api/capsule, downloads
+  services/
+    repo_input.py        GitHub URL -> shallow clone, or local folder
+    repo_files.py        safe read-only traversal (no symlinks, skips .git/.venv)
+    manifests.py         dependency file parsing (PEP 508/621/735, Poetry, setup.cfg)
+    imports.py           AST import detection (stdlib / first-party / third-party, lazy/try/private flags)
+    package_map.py       import name -> distribution name
+    usages.py            alias-aware usage locations
+    scanner.py           combined scan + computed findings
+    pypi.py              observed PyPI metadata
+    risk.py              evidence-based risk indicators (no AI)
+    gemma.py             Gemma 4 via Gemini API, structured JSON
+    test_runner.py       isolated baseline + upgrade test runs
+    capsule.py           Dependency Exit Capsule (JSON + Markdown)
+  static/index.html      single-page frontend (vanilla JS)
 ```
 
-If your Python 3.12 has a different name on macOS/Linux, pass it to make:
-`make setup PYTHON=/path/to/python3.12`
+## 5. Dependencies
 
-</details>
+FastAPI, Uvicorn, Pydantic v2, packaging, python-dotenv (see `requirements.txt`). HTTP calls to PyPI and
+the Gemini API use the Python standard library. All are open source under their own licenses
+(MIT / BSD / Apache-2.0).
 
----
+## 6. AI model details
 
-## 📖 Usage
+| Field | Value |
+|---|---|
+| Model name | Gemma 4 (largest Gemma 4 model available to the key, or `GEMMA_MODEL`) |
+| Model version | Recorded in every capsule under `ai_model.name` (exact model id used at run time) |
+| Model source | Google DeepMind, open-weight Gemma family |
+| Access method | Hosted API: Google Gemini API (`generativelanguage.googleapis.com`), free-tier AI Studio key |
+| License / terms | Gemma 4 open weights released under Apache 2.0 (per the event handbook); API use subject to Google's Gemini API terms |
+| Role in project | Generates replacement + migration recommendations, proposed code changes, compatibility warnings and suggested tests from observed evidence. It does **not** decide risk levels and its output is never marked verified. |
 
-| Command | What it does |
-|---------|--------------|
-| `python -m linkwatch.cli check` | Checks every site, shows the live table and saves the results |
-| `python -m linkwatch.cli report` | Builds `status.html` from the last saved results |
-| `python -m linkwatch.cli info` | Shows where the templates and cached results live |
-| `python -m linkwatch.cli --help` | Lists all commands and options |
+## 7. Known limitations
 
-### Options
+- Static analysis only; dynamic imports (`importlib.import_module`, `__import__`) are not detected.
+- Calls on object instances are not traced (no type inference); `from x import *` usages cannot be followed.
+- Import→package matching uses exact names plus a small table of well-known aliases; others are "unresolved".
+- Requirements-file scope (runtime/dev) is inferred from the file name. Poetry `^`/`~` constraints are
+  compared textually, not semantically.
+- `setup.py` and `Pipfile` are detected but not parsed (setup.py is code and is never executed).
+- Test isolation is a temp copy + separate venv + timeouts, **not** a container. Only run repositories you trust.
+- Candidate test runs are drop-in version upgrades; Gemma's code changes are not applied or tested automatically.
+- Gemma recommendations can be wrong; they are labelled unverified and include self-reported confidence.
 
-| Command | Option | Default | Description |
-|---------|--------|---------|-------------|
-| `check` | `--config PATH` | `sites.toml` | Use a different sites file |
-| `report` | `-o, --output PATH` | `status.html` | Where to write the HTML page |
-| `report` | `--title TEXT` | `linkwatch` | Heading shown on the status page |
+## Development notes and attribution
 
-### A typical session
+- All code was written during the hackathon (15 Oct 2026). Commit history reflects the build order.
+- AI coding assistance (Anthropic Claude) was used while writing this code; outputs were run and checked
+  against LinkWatch by the team. Gemma 4 is the only model used **inside** the product.
+- This repository is a fork of the organizer-provided LinkWatch repository (MIT, © its authors).
+  DependencyGuard lives in `dependencyguard/`. LinkWatch's code is unchanged; its original README is kept as `LINKWATCH_README.md`.
 
-```bash
-python -m linkwatch.cli check                     # 1. check your sites
-python -m linkwatch.cli report -o status.html     # 2. build the status page
-open status.html                                  # 3. view it (xdg-open on Linux)
-```
+## License
 
----
-
-## ⚙️ Configuration
-
-All sites live in **`sites.toml`** in the project folder:
-
-```toml
-title = "My sites"
-
-[[sites]]
-name = "Python"
-url = "https://www.python.org"
-
-[[sites]]
-name = "Example"
-url = "https://example.com"
-```
-
-| Key | Required | Description |
-|-----|----------|-------------|
-| `title` | no | Heading shown above the terminal table |
-| `[[sites]]` | yes | One block per site you want to check |
-| `name` | yes | Short label for the site |
-| `url` | yes | Full address, must start with `http://` or `https://` |
-
-To add a site, copy a `[[sites]]` block and change the name and URL.
-
-### Where results are stored
-
-| System | Location |
-|--------|----------|
-| macOS | `~/Library/Caches/linkwatch/results.json` |
-| Linux | `~/.cache/linkwatch/results.json` |
-| Windows | `%LOCALAPPDATA%\linkwatch\linkwatch\Cache\results.json` |
-
-Set the `LINKWATCH_CACHE_DIR` environment variable to keep results somewhere else.
-
----
-
-## 🧠 How it works
-
-```mermaid
-flowchart LR
-    A["sites.toml"] -->|"check"| B["Live table in terminal"]
-    A -->|"check"| C[("results.json cache")]
-    C -->|"report"| D["status.html"]
-```
-
-1. **Load**: `sites.toml` is read and validated (every site needs a name and a valid URL).
-2. **Check**: each site gets an HTTP GET request, and linkwatch records the status code, response time, page title and `Last-Modified` header.
-3. **Save**: results are written as JSON to your cache folder.
-4. **Report**: the saved results are rendered into a standalone HTML page with a summary of what's up and what's down.
-
-### Project structure
-
-```text
-linkwatch/
-├── linkwatch/
-│   ├── cli.py            # commands: check, report, info
-│   ├── config.py         # reads and validates sites.toml
-│   ├── checker.py        # visits each site and collects results
-│   ├── encoding.py       # page charset detection and title extraction
-│   ├── dates.py          # Last-Modified parsing
-│   ├── http_patch.py     # default request headers
-│   ├── cache.py          # saves and loads results.json
-│   ├── report.py         # builds the HTML status page
-│   ├── resources.py      # locates the bundled templates
-│   └── templates/
-│       └── status.html.j2
-├── tests/                # pytest suite with a tiny local test server
-├── sites.toml            # your list of sites
-├── requirements.txt      # app dependencies
-├── requirements-dev.txt  # test dependencies
-├── Dockerfile
-└── Makefile
-```
-
----
-
-## 🧪 Running the tests
-
-The tests start a tiny local web server, so they don't depend on real websites.
-
-```bash
-make test            # locally (activate .venv first)
-make docker-test     # inside Docker (run make docker-build first)
-```
-
-### Make targets
-
-| Target | Description |
-|--------|-------------|
-| `make setup` | Create `.venv` and install all dependencies |
-| `make test` | Run the pytest suite |
-| `make test-nose` | Run the suite with nose |
-| `make docker-build` | Build the Docker image |
-| `make docker-test` | Run the tests inside Docker |
-
----
-
-## 🤝 Contributing
-
-Ideas, bug reports and pull requests are welcome. Fork the repo, create a branch,
-and open a PR. Please run `make test` before submitting.
-
-## 📄 License
-
-Released under the [MIT License](LICENSE).
+DependencyGuard is released under the MIT License (`dependencyguard/LICENSE`).

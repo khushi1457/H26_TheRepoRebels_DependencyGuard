@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DependencyGuard</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --text:#e6e8ee; --muted:#9aa3b2;
+          --high:#ff5d5d; --med:#ffb547; --low:#5fb3ff; --ok:#3ecf8e; --ai:#c58cff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:24px 32px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:22px; } h1 span { color:var(--muted); font-weight:400; font-size:15px; margin-left:8px; }
+  main { padding:24px 32px; max-width:1200px; margin:0 auto; }
+  .bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { flex:1; min-width:300px; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit; }
+  button { padding:10px 16px; border:0; border-radius:8px; background:#3b82f6; color:white; font:inherit; font-weight:600; cursor:pointer; }
+  button.secondary { background:var(--panel); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:wait; }
+  label { color:var(--muted); display:flex; gap:6px; align-items:center; }
+  .legend { margin:16px 0; color:var(--muted); font-size:13px; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .t-obs { background:#13301f; color:var(--ok); } .t-ai { background:#2a1838; color:var(--ai); }
+  .t-high { background:#3a1414; color:var(--high); } .t-medium { background:#3a2a10; color:var(--med); }
+  .t-low { background:#122a3d; color:var(--low); } .t-none { background:#1f232c; color:var(--muted); }
+  .summary { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .stat b { font-size:22px; display:block; }
+  details.pkg { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin:10px 0; }
+  details.pkg > summary { padding:12px 16px; cursor:pointer; display:flex; gap:10px; align-items:center; list-style:none; }
+  details.pkg > summary::-webkit-details-marker { display:none; }
+  .pkgname { font-weight:700; } .muted { color:var(--muted); }
+  .body { padding:0 16px 16px; }
+  h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:16px 0 6px; display:flex; gap:8px; align-items:center; }
+  ul { margin:0; padding-left:20px; } li { margin:2px 0; }
+  code { background:#0b0d11; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .ai-box { border-left:3px solid var(--ai); padding-left:12px; }
+  .obs-box { border-left:3px solid var(--ok); padding-left:12px; }
+  #status { margin:12px 0; color:var(--muted); min-height:22px; }
+  .err { color:var(--high); }
+  pre { white-space:pre-wrap; background:#0b0d11; padding:10px; border-radius:8px; font-size:12px; max-height:240px; overflow:auto; }
+</style>
+</head>
+<body>
+<header><h1>DependencyGuard <span>dependency risk → Gemma 4 migration plan → test evidence → Exit Capsule</span></h1></header>
+<main>
+  <div class="bar">
+    <input id="repo" type="text" value="https://github.com/rishrek/LinkWatch" aria-label="Repository URL or local path">
+    <label><input id="gemma" type="checkbox" checked> Ask Gemma 4</label>
+    <label><input id="tests" type="checkbox"> Run tests (slow, ~2–4 min)</label>
+    <button id="scanBtn" class="secondary">Quick scan</button>
+    <button id="capBtn">Generate Exit Capsule</button>
+  </div>
+  <div class="legend"><span class="tag t-obs">OBSERVED</span> read from the repo, PyPI, or executed tests &nbsp;·&nbsp;
+    <span class="tag t-ai">AI-GENERATED</span> Gemma 4 suggestion, not verified</div>
+  <div id="status"></div>
+  <div id="downloads" style="display:none" class="bar">
+    <a href="/api/capsule/latest.md"><button class="secondary">Download capsule (.md)</button></a>
+    <a href="/api/capsule/latest.json"><button class="secondary">Download capsule (.json)</button></a>
+  </div>
+  <div id="summary" class="summary"></div>
+  <div id="results"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tag = (cls, text) => `<span class="tag ${cls}">${esc(text)}</span>`;
+
+function busy(on, msg) {
+  $("scanBtn").disabled = $("capBtn").disabled = on;
+  $("status").innerHTML = msg || "";
+}
+
+async function call(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+function list(items, fn) { return items && items.length ? "<ul>" + items.map(fn).join("") + "</ul>" : '<p class="muted">none</p>'; }
+
+function renderScan(scan) {
+  const pk = scan.packages;
+  $("summary").innerHTML = [
+    ["Packages", pk.length], ["High risk", pk.filter(p => p.risk_level === "high").length],
+    ["Medium risk", pk.filter(p => p.risk_level === "medium").length],
+    ["Parse failures", scan.imports.parse_failures.length]
+  ].map(([k, v]) => `<div class="card stat"><b>${v}</b><span class="muted">${k}</span></div>`).join("");
+  $("results").innerHTML = pk.map(p => pkgCard({
+    name: p.distribution, level: p.risk_level, status: p.status, imports: p.import_names,
+    declared: p.declared_in, pypi: p.pypi, indicators: p.risk_indicators,
+    usages: p.usages.map(u => ({file:u.file, line:u.line, kind:u.kind, symbol:u.symbol, code:u.code}))
+  })).join("");
+}
+
+function renderCapsule(c) {
+  const s = c.summary;
+  const base = s.baseline ? `${s.baseline.passed} passed / ${s.baseline.failed} failed` : "not run";
+  $("summary").innerHTML = [["Packages", s.packages], ["High risk", s.high_risk], ["Medium risk", s.medium_risk],
+    ["Baseline tests", base], ["AI model", c.ai_model ? c.ai_model.name : "not used"]]
+    .map(([k, v]) => `<div class="card stat"><b>${esc(v)}</b><span class="muted">${k}</span></div>`).join("");
+  let html = "";
+  const te = c.test_execution_OBSERVED;
+  if (te && te.executed) {
+    html += `<div class="card"><h3>${tag("t-obs","OBSERVED")} Baseline test run (declared versions)</h3>
+      <p>${te.baseline.passed} passed, ${te.baseline.failed} failed, ${te.baseline.errors} errors · Python ${esc(te.python)} · ${esc(te.isolation)}</p>
+      ${list(te.baseline.failed_tests, t => `<li><code>${esc(t)}</code></li>`)}
+      <details><summary class="muted">pytest output</summary><pre>${esc(te.baseline.output_tail)}</pre></details></div>`;
+  } else if (te) {
+    html += `<div class="card"><h3>Tests</h3><p class="muted">${esc(te.reason)}</p>${te.install_output_tail ? `<pre>${esc(te.install_output_tail)}</pre>` : ""}</div>`;
+  }
+  html += c.packages.map(p => pkgCard({
+    name: p.dependency.distribution, level: p.risk_level, status: p.dependency.status,
+    imports: p.dependency.import_names, declared: p.dependency.declared_in, pypi: p.dependency.pypi,
+    indicators: p.risk_indicators_OBSERVED, usages: p.usage_locations_OBSERVED,
+    ai: p.ai_recommendation_UNVERIFIED, test: p.executed_tests_OBSERVED, gaps: p.compatibility_gaps,
+    concerns: p.open_concerns
+  })).join("");
+  html += `<div class="card"><h3>Limitations</h3>${list(c.limitations, x => `<li>${esc(x)}</li>`)}</div>`;
+  $("results").innerHTML = html;
+  $("downloads").style.display = "flex";
+}
+
+function pkgCard(p) {
+  const pypi = p.pypi && p.pypi.available
+    ? `<li>PyPI latest <b>${esc(p.pypi.latest_version)}</b> (${esc((p.pypi.latest_release_date||"").slice(0,10))}), pinned ${esc(p.pypi.pinned_version || "—")}</li>` : "";
+  let html = `<details class="pkg" ${p.level === "high" ? "open" : ""}><summary>
+    ${tag("t-" + p.level, p.level.toUpperCase())} <span class="pkgname">${esc(p.name)}</span>
+    <span class="muted">${esc(p.status.replaceAll("_"," "))}${p.imports.length && p.imports[0] !== p.name ? " · import " + esc(p.imports.join(", ")) : ""} · ${p.usages.length} usage(s)</span></summary><div class="body">
+    <div class="obs-box"><h3>${tag("t-obs","OBSERVED")} Declarations</h3>
+    <ul>${p.declared.map(d => `<li><code>${esc(d.source_file)}:${d.line}</code> ${esc(d.specifier || "any version")} (${esc(d.scope)})</li>`).join("") || "<li>not declared</li>"}${pypi}</ul>
+    <h3>${tag("t-obs","OBSERVED")} Risk indicators</h3>${list(p.indicators, i => `<li>${tag("t-"+i.severity, i.severity)} ${esc(i.message)} <span class="muted">— ${esc(i.source)}</span></li>`)}
+    <h3>${tag("t-obs","OBSERVED")} Usage locations</h3>${list(p.usages, u => `<li><code>${esc(u.file)}:${u.line}</code> ${esc(u.kind)} <code>${esc(u.symbol)}</code><br><span class="muted">${esc(u.code)}</span></li>`)}</div>`;
+  if (p.ai) {
+    html += `<div class="ai-box"><h3>${tag("t-ai","AI-GENERATED · UNVERIFIED")} Gemma 4 recommendation</h3>`;
+    if (p.ai.error) html += `<p class="err">Gemma request failed: ${esc(p.ai.error)}</p>`;
+    else html += `<p><b>${esc(p.ai.action)}</b> → <code>${esc(p.ai.replacement)}</code> <span class="muted">(${esc(p.ai.model)}, self-reported confidence: ${esc(p.ai.confidence)})</span></p>
+      <p>${esc(p.ai.rationale)}</p><h3>Migration steps</h3><ol>${(p.ai.migration_steps||[]).map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+      ${(p.ai.code_changes||[]).length ? `<h3>Proposed code changes</h3><ul>${p.ai.code_changes.map(ch => `<li><code>${esc(ch.file)}:${esc(ch.line)}</code><br>before: <code>${esc(ch.before)}</code><br>after: <code>${esc(ch.after)}</code></li>`).join("")}</ul>` : ""}
+      <h3>Suggested tests</h3>${list(p.ai.suggested_tests, t => `<li>${esc(t)}</li>`)}`;
+    html += `</div>`;
+  }
+  if (p.test !== undefined) {
+    html += `<div class="obs-box"><h3>${tag("t-obs","OBSERVED")} Executed tests</h3>`;
+    if (p.test && p.test.installed) html += `<p>With <code>${esc(p.name)}==${esc(p.test.tried_version)}</code> (was ${esc(p.test.original_version)}): ${p.test.result.passed} passed, ${p.test.result.failed} failed, ${p.test.result.errors} errors</p>`;
+    else if (p.test) html += `<p class="err">Could not install ${esc(p.name)}==${esc(p.test.tried_version)}</p>`;
+    else html += `<p class="muted">not executed for this package</p>`;
+    html += `</div>`;
+  }
+  if (p.gaps) {
+    html += `<h3>Compatibility gaps</h3>${list([...p.gaps.observed.map(x => tag("t-obs","OBSERVED") + " " + esc(x)),
+      ...p.gaps.ai_predicted_unverified.map(x => tag("t-ai","AI") + " " + esc(x))], x => `<li>${x}</li>`)}
+      <h3>Open concerns</h3>${list(p.concerns, x => `<li>${esc(x)}</li>`)}`;
+  }
+  return html + `</div></details>`;
+}
+
+$("scanBtn").onclick = async () => {
+  busy(true, "Scanning repository and reading PyPI metadata…");
+  try { renderScan(await call("/api/scan?repo=" + encodeURIComponent($("repo").value))); busy(false, "Quick scan complete."); }
+  catch (e) { busy(false, `<span class="err">${esc(e.message)}</span>`); }
+};
+$("capBtn").onclick = async () => {
+  const t0 = Date.now();
+  busy(true, "Generating Exit Capsule (scan → risk → Gemma 4" + ($("tests").checked ? " → test runs" : "") + ")…");
+  const timer = setInterval(() => $("status").textContent = `Working… ${Math.round((Date.now()-t0)/1000)}s`, 1000);
+  try {
+    const c = await call("/api/capsule", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({repo: $("repo").value, use_gemma: $("gemma").checked, run_tests: $("tests").checked})});
+    renderCapsule(c); busy(false, `Exit Capsule generated in ${Math.round((Date.now()-t0)/1000)}s.`);
+  } catch (e) { busy(false, `<span class="err">${esc(e.message)}</span>`); }
+  finally { clearInterval(timer); }
+};
+</script>
+</body>
+</html>
